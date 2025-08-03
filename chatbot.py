@@ -41,16 +41,17 @@ class ChatBot:
         Load the specified Hugging Face model for text generation.
         Implements fallback strategy to ensure reliability even if primary model fails.
         """
+        token = os.getenv("HUGGINGFACE_TOKEN")
         try:
             logger.info(f"Loading model: {self.model_name}")
-            
             # Use different pipeline configurations based on model type
             if "DialoGPT" in self.model_name:
                 self.chat_pipeline = pipeline(
                     "conversational",
                     model=self.model_name,
                     tokenizer=self.model_name,
-                    device=-1  # Use CPU for compatibility
+                    device=-1,  # Use CPU for compatibility
+                    token=token
                 )
             else:
                 self.chat_pipeline = pipeline(
@@ -58,11 +59,10 @@ class ChatBot:
                     model=self.model_name,
                     tokenizer=self.model_name,
                     device=-1,
-                    max_length=self.max_length
+                    max_length=self.max_length,
+                    token=token
                 )
-                
             logger.info("Model loaded successfully")
-            
         except Exception as e:
             logger.error(f"Error loading model: {str(e)}")
             # Fallback to a smaller, more reliable model
@@ -112,17 +112,16 @@ class ChatBot:
             else:
                 result = self.chat_pipeline(
                     prompt,
-                    max_length=len(prompt.split()) + 100,
+                    max_new_tokens=128,  # Limit the number of new tokens generated
                     num_return_sequences=1,
                     temperature=0.7,
                     do_sample=True,
-                    pad_token_id=50256  # GPT-2 padding token
+                    pad_token_id=50256,  # GPT-2 padding token
+                    truncation=True
                 )
-                
                 # Extract only the generated portion
                 generated_text = result[0]['generated_text']
                 response = generated_text[len(prompt):].strip()
-                
                 # Clean up response to prevent conversation bleeding
                 if "User:" in response:
                     response = response.split("User:")[0].strip()
